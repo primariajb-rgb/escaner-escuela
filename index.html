@@ -171,6 +171,88 @@
       }
     }
 
+    let html5QrScanner = null;
+
+    async function iniciarCamaraRobusta() {
+      const contenedor = document.getElementById("reader");
+      if (!contenedor) {
+        console.error("No se encontró el elemento HTML con id='reader'");
+        return;
+      }
+    
+      // 1. Detener e instancias previas si existían
+      if (html5QrScanner) {
+        try {
+          await html5QrScanner.stop();
+          html5QrScanner.clear();
+        } catch (e) {
+          console.warn("Limpieza previa del escáner:", e);
+        }
+      }
+    
+      html5QrScanner = new Html5Qrcode("reader");
+    
+      try {
+        // 2. Obtener lista real de cámaras físicas conectadas
+        const dispositivos = await Html5Qrcode.getCameras();
+        
+        if (!dispositivos || dispositivos.length === 0) {
+          alert("No se encontró ninguna cámara física conectada a este equipo.");
+          return;
+        }
+    
+        // 3. Preferir cámara trasera si existe en el listado, o tomar la primera (Webcam)
+        let idCamaraElegida = dispositivos[0].id;
+        const camaraTrasera = dispositivos.find(d => 
+          d.label.toLowerCase().includes('back') || 
+          d.label.toLowerCase().includes('trasera') || 
+          d.label.toLowerCase().includes('environment')
+        );
+    
+        if (camaraTrasera) {
+          idCamaraElegida = camaraTrasera.id;
+        }
+    
+        // 4. Iniciar con la cámara seleccionada
+        const configuracion = { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 } 
+        };
+    
+        await html5QrScanner.start(
+          idCamaraElegida,
+          configuracion,
+          function(codigoMatricula) {
+            // Al detectar lectura correcta
+            if (typeof procesarQRLeido === 'function') {
+              procesarQRLeido(codigoMatricula);
+            }
+          },
+          function(errorEscaneo) {
+            // Silenciar errores de lectura cuadro por cuadro
+          }
+        );
+    
+      } catch (err) {
+        console.error("Error al iniciar cámara:", err);
+        
+        // Diagnóstico exacto del error real
+        const msg = String(err);
+        if (msg.includes("NotReadableError") || err.name === "NotReadableError") {
+          alert("⚠️ La cámara está ocupada por otra aplicación (Zoom, Meet, WhatsApp) o por otra pestaña. Ciérralas y vuelve a intentar.");
+        } else if (msg.includes("NotAllowedError") || err.name === "NotAllowedError") {
+          alert("⚠️ Permiso denegado. Haz clic en el candado junto a la URL y permite el acceso a la cámara.");
+        } else {
+          alert("No se pudo iniciar la cámara: " + (err.message || err));
+        }
+      }
+    }
+
+    // Iniciar al cargar el documento
+    document.addEventListener('DOMContentLoaded', function() {
+      iniciarCamaraRobusta();
+    });
+
     function onScanFailure(error) {}
   </script>
 </body>
