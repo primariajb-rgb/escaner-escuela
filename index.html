@@ -46,6 +46,7 @@
     let html5QrCodeScanner = null;
     let escanerActivo = false;
     let escaneandoBloqueado = false;
+    let bloqueoEscaneo = false;
     let timerMensaje = null;
 
     async function toggleCamara() {
@@ -98,74 +99,73 @@
     }
 
     function procesarQRLeido(codigoMatricula) {
-      // Evitar escaneos múltiples seguidos si está en tiempo de espera (3.5 segundos)
-      if (escaneandoBloqueado) return;
-      escaneandoBloqueado = true;
+      // Evitar lecturas duplicadas continuas del escáner
+      if (bloqueoEscaneo) return;
+      bloqueoEscaneo = true;
     
       const divRespuesta = document.getElementById('resultadoEscaner') || document.getElementById('mensajeEscaneo');
       if (divRespuesta) {
         divRespuesta.innerHTML = `
-          <div class="alert alert-info text-center fw-bold shadow-sm mb-0">
+          <div class="alert alert-info text-center fw-bold mb-0">
             <div class="spinner-border spinner-border-sm me-2"></div>Procesando entrada...
           </div>`;
       }
     
-      const manejarRespuesta = function(res) {
+      const procesarRespuesta = function(res) {
         if (!divRespuesta) return;
         
-        // Limpiar temporizadores anteriores si los hubiera
         if (timerMensaje) clearTimeout(timerMensaje);
     
-        if (res.exito) {
-          // ✅ CASO 1: ENTRADA REGISTRADA
+        if (res.registrado) {
+          // ✅ REGISTRO EXITOSO DE ENTRADA
           divRespuesta.innerHTML = `
             <div class="alert alert-success text-center fw-bold shadow-lg mb-0 p-3">
               <div class="fs-4">✅ ¡ENTRADA REGISTRADA!</div>
-              <div class="fs-5 text-dark mt-1">${escapeHTML(res.alumno)}</div>
-              <small class="text-success">Hora: ${escapeHTML(res.hora)}</small>
+              <div class="fs-5 text-dark mt-1">${res.nombre}</div>
+              <small class="text-success">Hora: ${res.hora}</small>
             </div>`;
         } else if (res.esDuplicado) {
-          // ⚠️ CASO 2: YA REGISTRÓ ENTRADA HOY
+          // ⚠️ ALUMNO YA INGRESÓ HOY
           divRespuesta.innerHTML = `
             <div class="alert alert-warning text-center fw-bold shadow-lg mb-0 p-3">
-              <div class="fs-4">⚠️ ENTRADA YA REGISTRADA HOY</div>
-              <div class="fs-5 text-dark mt-1">${escapeHTML(res.alumno)}</div>
+              <div class="fs-4">⚠️ YA REGISTRÓ ENTRADA HOY</div>
+              <div class="fs-5 text-dark mt-1">${res.nombre || res.matricula}</div>
               <small class="text-dark">Este alumno ya fue registrado el día de hoy.</small>
             </div>`;
         } else {
-          // ❌ CASO 3: ERROR / MATRÍCULA NO ENCONTRADA
+          // ❌ NO ENCONTRADO O ERROR
           divRespuesta.innerHTML = `
             <div class="alert alert-danger text-center fw-bold shadow-lg mb-0 p-3">
               <div class="fs-4">❌ ERROR</div>
-              <div>${escapeHTML(res.mensaje)}</div>
+              <div>${res.mensaje || 'No se pudo procesar la lectura'}</div>
             </div>`;
         }
     
-        // Ocultar la alerta y permitir un nuevo escaneo tras 3.5 segundos
+        // Ocultar mensaje y habilitar escáner tras 3.5 segundos
         timerMensaje = setTimeout(function() {
           if (divRespuesta) divRespuesta.innerHTML = '';
-          escaneandoBloqueado = false; // Se libera para el siguiente alumno
+          bloqueoEscaneo = false; 
         }, 3500);
       };
     
-      // Envío a Apps Script o backend de GitHub
+      // Llamada al backend
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
-          .withSuccessHandler(manejarRespuesta)
+          .withSuccessHandler(procesarRespuesta)
           .withFailureHandler(function(err) {
             if (divRespuesta) {
               divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0">Error de conexión al servidor</div>`;
-              setTimeout(() => { divRespuesta.innerHTML = ''; escaneandoBloqueado = false; }, 3000);
+              setTimeout(() => { divRespuesta.innerHTML = ''; bloqueoEscaneo = false; }, 3000);
             }
           })
-          .registrarAsistencia(codigoMatricula);
+          .registrarChecada(codigoMatricula);
       } else if (typeof llamarBackend === 'function') {
-        llamarBackend("registrarAsistencia", { matricula: codigoMatricula })
-          .then(manejarRespuesta)
+        llamarBackend("registrarChecada", { matricula: codigoMatricula })
+          .then(procesarRespuesta)
           .catch(err => {
             if (divRespuesta) {
               divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0">Error de comunicación</div>`;
-              setTimeout(() => { divRespuesta.innerHTML = ''; escaneandoBloqueado = false; }, 3000);
+              setTimeout(() => { divRespuesta.innerHTML = ''; bloqueoEscaneo = false; }, 3000);
             }
           });
       }
