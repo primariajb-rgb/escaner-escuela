@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Control de Asistencia Escolar</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Font: Nunito (Estilo escolar y moderno) -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lector QR -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+      :root {
+        --primary-color: #2563eb;
+        --primary-dark: #1d4ed8;
+        --bg-color: #f8fafc;
+        --card-radius: 16px;
+      }
+
+      body {
+        font-family: 'Nunito', sans-serif;
+        background-color: var(--bg-color);
+        color: #334155;
+      }
+
+      /* Navbar Escolar con Degradado */
+      .navbar-school {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+      }
+
+      .brand-title {
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+
+      /* Pestañas Estilo Pastilla (Pills) */
+      .nav-pills .nav-link {
+        color: #64748b;
+        font-weight: 700;
+        border-radius: 12px;
+        padding: 10px 18px;
+        margin-right: 6px;
+        transition: all 0.2s ease;
+      }
+
+      .nav-pills .nav-link:hover {
+        background-color: #e2e8f0;
+        color: #1e293b;
+      }
+
+      .nav-pills .nav-link.active {
+        background-color: var(--primary-color);
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+      }
+
+      /* Tarjetas del Sistema */
+      .main-card {
+        background: #ffffff;
+        border: none;
+        border-radius: var(--card-radius);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      }
+
+      /* Marco para el Lector QR */
+      #reader {
+        border: 3px dashed #cbd5e1 !important;
+        border-radius: 20px;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+
+      #reader video {
+        border-radius: 16px;
+      }
+
+      /* Tarjetas Dashboard por Grado */
+      .card-grado {
+        border: none;
+        border-radius: 16px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .card-grado:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1);
+      }
+
+      .grade-badge {
+        font-size: 0.9rem;
+        padding: 6px 12px;
+        border-radius: 20px;
+      }
+
+      .badge-entrada { background-color: #dcfce7; color: #166534; font-weight: 700; }
+      .badge-salida  { background-color: #fef3c7; color: #92400e; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+
+    <!-- ENCABEZADO ESCOLAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-school py-3 mb-4">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+          <i class="bi bi-backpack2-fill fs-3 text-warning"></i>
+          <span class="brand-title fs-4">Asistencia Escolar Colegio IEHP Primaria</span>
+        </a>
+        <div class="d-flex align-items-center gap-2 text-white bg-white bg-opacity-10 px-3 py-1 rounded-pill">
+          <i class="bi bi-person-circle fs-5"></i>
+          <span id="userInfo" class="fw-semibold small">Cargando perfil...</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container pb-5">
+
+      <!-- NAVEGACIÓN PRINCIPAL -->
+      <ul class="nav nav-pills mb-4 justify-content-start flex-wrap gap-1" id="mainTabs" role="tablist">
+        <li class="nav-item" id="nav-escaner" style="display:none;">
+          <button class="nav-link" id="tab-escaner" data-bs-toggle="tab" data-bs-target="#escaner" type="button">
+            <i class="bi bi-qr-code-scan me-1"></i> Escáner QR
+          </button>
+        </li>
+        <li class="nav-item" id="nav-dashboard" style="display:none;">
+          <button class="nav-link" id="tab-dashboard" data-bs-toggle="tab" data-bs-target="#dashboard" type="button" onclick="cargarDashboard()">
+            <i class="bi bi-grid-1x2-fill me-1"></i> Indicadores
+          </button>
+        </li>
+        <li class="nav-item" id="nav-checadas" style="display:none;">
+          <button class="nav-link" id="tab-checadas" data-bs-toggle="tab" data-bs-target="#checadas" type="button" onclick="filtrarChecadas()">
+            <i class="bi bi-file-earmark-bar-graph me-1"></i> Reporte Checadas
+          </button>
+        </li>
+        <li class="nav-item" id="nav-alumnos" style="display:none;">
+          <button class="nav-link" id="tab-alumnos" data-bs-toggle="tab" data-bs-target="#alumnos" type="button" onclick="cargarAlumnos()">
+            <i class="bi bi-people-fill me-1"></i> Alumnos
+          </button>
+        </li>
+        <li class="nav-item" id="nav-grados" style="display:none;">
+          <button class="nav-link" id="tab-grados" data-bs-toggle="tab" data-bs-target="#grados" type="button" onclick="cargarGrados()">
+            <i class="bi bi-buildings-fill me-1"></i> Grados y Grupos
+          </button>
+        </li>
+        <li class="nav-item" id="nav-admin" style="display:none;">
+          <button class="nav-link text-danger" id="tab-admin" data-bs-toggle="tab" data-bs-target="#admin" type="button" onclick="cargarUsuariosAdmin()">
+            <i class="bi bi-shield-lock-fill me-1"></i> Panel Admin
+          </button>
+        </li>
+      </ul>
+
+      <!-- CONTENIDO DE PESTAÑAS -->
+      <div class="tab-content">
+
+        <!-- PESTAÑA: ESCÁNER QR -->
+        <!-- PESTAÑA: ESCÁNER QR -->
+        <div class="tab-pane fade" id="escaner" role="tabpanel">
+          <div class="main-card p-4 mx-auto" style="max-width: 500px;">
+            <div class="text-center mb-3">
+              <h4 class="fw-bold text-dark"><i class="bi bi-camera-fill text-primary me-2"></i>Escanear Credencial</h4>
+              <p class="text-muted small">Presione el botón para activar la cámara en vivo y muestre el QR</p>
+            </div>
+
+            <!-- Botón de Control de Cámara -->
+            <div class="d-grid gap-2 mb-3">
+              <button id="btnToggleCamara" class="btn btn-primary btn-lg rounded-3 fw-bold shadow-sm" onclick="toggleCamara()">
+                <i class="bi bi-camera-video-fill me-2"></i>Iniciar Cámara
+              </button>
+            </div>
+
+            <!-- Visor de la Cámara -->
+            <div id="reader" class="p-2 border rounded-4 bg-light text-center overflow-hidden" style="min-height: 250px;"></div>
+
+            <!-- Mensaje de Resultado -->
+            <div id="resultadoEscaneo" class="mt-3 alert text-center fs-6 fw-bold rounded-4 d-none"></div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 1: INDICADORES DENTRO/FUERA -->
+        <div class="tab-pane fade" id="dashboard" role="tabpanel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Indicadores de Asistencia</h4>
+            <button class="btn btn-sm btn-outline-primary rounded-pill fw-bold" onclick="cargarDashboard()">
+              <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+          </div>
+
+          <!-- TARJETAS GLOBALES (Población Total y Presencia Dentro/Fuera) -->
+          <div class="row g-3 mb-4" id="contenedorTarjetasGlobales">
+            <!-- Se llena dinámicamente -->
+          </div>
+
+          <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-mortarboard-fill me-2"></i>Asistencia por Grado</h5>
+
+          <!-- TARJETAS POR GRADO (1º a 6º) -->
+          <div class="row g-3" id="contenedorTarjetasGrados">
+            <!-- Se llena dinámicamente en orden de 1º a 6º -->
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: CHECADAS Y FILTROS -->
+        <div class="tab-pane fade" id="checadas" role="tabpanel">
+          <div class="main-card p-4">
+            <h4 class="fw-bold mb-3"><i class="bi bi-journal-check text-primary me-2"></i>Histórico de Checadas</h4>
+            
+            <div class="row g-3 mb-4 bg-light p-3 rounded-4 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label fw-bold small text-muted">Fecha</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white"><i class="bi bi-calendar-event"></i></span>
+                  <input type="date" class="form-control" id="filtroFecha">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold small text-muted">Grado</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white"><i class="bi bi-mortarboard"></i></span>
+                  <select class="form-select" id="filtroGrado">
+                    <option value="">Todos los Grados</option>
+                    <option value="1º">1º Grado</option>
+                    <option value="2º">2º Grado</option>
+                    <option value="3º">3º Grado</option>
+                    <option value="4º">4º Grado</option>
+                    <option value="5º">5º Grado</option>
+                    <option value="6º">6º Grado</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-primary w-50 fw-bold rounded-3" onclick="filtrarChecadas()"><i class="bi bi-search me-1"></i>Filtrar</button>
+                <button class="btn btn-success w-50 fw-bold rounded-3" onclick="exportarExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Matrícula</th>
+                    <th>Nombre del Alumno</th>
+                    <th>Grado/Grupo</th>
+                    <th>Movimiento</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyChecadas"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 3: CRUD ALUMNOS -->
+        <!-- PESTAÑA 3: CRUD ALUMNOS -->
+        <div class="tab-pane fade" id="alumnos" role="tabpanel">
+          <div class="main-card p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <h4 class="fw-bold mb-0"><i class="bi bi-person-lines-fill text-primary me-2"></i>Padrón de Alumnos</h4>
+              
+              <!-- CONTENEDOR DE FILTRO Y BOTÓN -->
+              <div class="d-flex gap-2 align-items-center">
+                <select id="filtroGradoAlumno" class="form-select rounded-3 shadow-sm" style="width: auto;" onchange="filtrarAlumnosPorGrado()">
+                  <option value="">Todos los Grados</option>
+                  <option value="1º">1° Grado</option>
+                  <option value="2º">2° Grado</option>
+                  <option value="3º">3° Grado</option>
+                  <option value="4º">4° Grado</option>
+                  <option value="5º">5° Grado</option>
+                  <option value="6º">6° Grado</option>
+                </select>
+
+                <button class="btn btn-success fw-bold rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAlumno" onclick="limpiarModalAlumno()">
+                  <i class="bi bi-person-plus-fill me-1"></i> Nuevo Alumno
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Matrícula</th>
+                    <th>Nombre</th>
+                    <th>Grado/Grupo</th>
+                    <th>Correo Tutor</th>
+                    <th>Teléfono</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAlumnos"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 4: GRADOS Y GRUPOS -->
+        <div class="tab-pane fade" id="grados" role="tabpanel">
+          <div class="row g-4">
+            <div class="col-md-4">
+              <div class="main-card p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle text-primary me-2"></i>Agregar Sección</h5>
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-muted">Grado</label>
+                  <select id="nuevoGrado" class="form-select">
+                    <option value="1º">1º</option><option value="2º">2º</option><option value="3º">3º</option>
+                    <option value="4º">4º</option><option value="5º">5º</option><option value="6º">6º</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-muted">Grupo</label>
+                  <input type="text" id="nuevoGrupo" class="form-control" placeholder="Ej. A">
+                </div>
+                <button class="btn btn-primary w-100 fw-bold" onclick="guardarGradoGrupoUI()">Guardar Sección</button>
+              </div>
+            </div>
+            <div class="col-md-8">
+              <div class="main-card p-4">
+                <h5 class="fw-bold mb-3">Grados y Grupos Configurados</h5>
+                <table class="table table-hover align-middle">
+                  <thead class="table-light"><tr><th>ID</th><th>Grado</th><th>Grupo</th><th>Acción</th></tr></thead>
+                  <tbody id="tbodyGrados"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL ADMIN -->
+        <div class="tab-pane fade" id="admin" role="tabpanel">
+          <div class="main-card p-4 border-top border-4 border-danger">
+            <h4 class="text-danger fw-bold mb-3"><i class="bi bi-shield-lock-fill me-2"></i>Panel de Administración (Hever)</h4>
+            <div class="bg-light p-3 rounded-4 mb-4">
+              <h6 class="fw-bold mb-3">Registrar Nuevo Usuario / Rol</h6>
+              <div class="row g-2">
+                <div class="col-md-4"><input type="email" id="adminCorreo" class="form-control" placeholder="Correo Gmail"></div>
+                <div class="col-md-4"><input type="text" id="adminNombre" class="form-control" placeholder="Nombre Completo"></div>
+                <div class="col-md-3">
+                  <select id="adminRol" class="form-select">
+                    <option value="DIRECTORA">DIRECTORA</option>
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="ESCANER">ESCANER</option>
+                  </select>
+                </div>
+                <div class="col-md-1"><button class="btn btn-danger w-100 fw-bold" onclick="guardarUsuarioAdmin()">+ </button></div>
+              </div>
+            </div>
+            <table class="table table-hover align-middle">
+              <thead class="table-light"><tr><th>Correo</th><th>Nombre</th><th>Rol de Acceso</th></tr></thead>
+              <tbody id="tbodyUsuarios"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL ALUMNO -->
+    <div class="modal fade" id="modalAlumno" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+          <div class="modal-header bg-primary text-white rounded-top-4">
+            <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2"></i>Ficha del Alumno</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-4">
+            <div class="mb-2">
+              <label for="mMatricula" class="form-label small fw-bold">Matrícula</label>
+              <input type="text" id="mMatricula" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label for="mNombre" class="form-label small fw-bold">Nombre(s)</label>
+              <input type="text" id="mNombre" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label for="mApellidos" class="form-label small fw-bold">Apellidos</label>
+              <input type="text" id="mApellidos" class="form-control">
+            </div>
+            <div class="row mb-2">
+              <div class="col">
+                <label for="mGrado" class="form-label small fw-bold">Grado</label>
+                <select id="mGrado" class="form-select">
+                  <option value="1º">1°</option>
+                  <option value="2º">2°</option>
+                  <option value="3º">3°</option>
+                  <option value="4º">4°</option>
+                  <option value="5º">5°</option>
+                  <option value="6º">6°</option>
+                </select>
+              </div>
+              <div class="col">
+                <label for="mGrupo" class="form-label small fw-bold">Grupo</label>
+                <input type="text" id="mGrupo" class="form-control" placeholder="A">
+              </div>
+            </div>
+            <!-- NUEVO CAMPO: NOMBRE DEL TUTOR -->
+            <div class="mb-2">
+              <label for="mNombreTutor" class="form-label small fw-bold">Nombre del Tutor</label>
+              <input type="text" id="mNombreTutor" class="form-control" placeholder="Ej. María López">
+            </div>
+            <div class="mb-2">
+              <label for="mCorreo" class="form-label small fw-bold">Correo Tutor</label>
+              <input type="email" id="mCorreo" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label for="mTelefono" class="form-label small fw-bold">Teléfono Tutor</label>
+              <input type="text" id="mTelefono" class="form-control">
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary fw-bold rounded-3" onclick="guardarAlumnoUI()">Guardar Alumno</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CREDENCIAL Y QR DEL ALUMNO -->
+    <div class="modal fade" id="modalCredencial" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+          <div class="modal-header bg-success text-white rounded-top-4">
+            <h5 class="modal-title fw-bold"><i class="bi bi-card-heading me-2"></i>Ficha de Credencial Escolar</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4 text-center" id="areaCredencial">
+            <!-- Diseño de Tarjeta Imprimible -->
+            <!-- Diseño de Tarjeta Imprimible -->
+            <div class="card border-2 border-primary rounded-4 p-3 shadow-sm mx-auto text-center" style="max-width: 320px; background: #ffffff;">
+              
+              <!-- Encabezado con Nombre del Colegio -->
+              <div class="border-bottom pb-2 mb-3">
+                <!-- Reemplaza "INSTITUTO LUIS PASTEUR" por el nombre de tu institución -->
+                <h5 class="fw-bold text-primary mb-1">
+                  <i class="bi bi-building-fill me-1"></i> Colegio IEHP Primaria
+                </h5>
+                <small class="text-muted fw-semibold d-block">QR para Asistencia Escolar</small>
+              </div>
+
+              <!-- Código QR -->
+              <div class="mb-3">
+                <img id="qrCredencialImg" src="" alt="QR Alumno" class="img-fluid rounded-3 border p-2 bg-light" style="width: 180px; height: 180px;">
+              </div>
+
+              <!-- Datos del Alumno (Dinámicos) -->
+              <h5 class="fw-bold text-dark mb-1" id="credNombre">-</h5>
+              <p class="text-muted small mb-2">Matrícula: <strong id="credMatricula" class="text-primary">-</strong></p>
+              <div>
+                <span class="bg-primary-subtle text-primary fw-bold py-1 px-3 rounded-pill d-inline-block text-uppercase small" id="credGradoGrupo">
+                  -
+                </span>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer border-0 pt-0 justify-content-center">
+            <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Cerrar</button>
+            <button type="button" class="btn btn-success fw-bold rounded-3" onclick="imprimirCredencial()">
+              <i class="bi bi-printer-fill me-1"></i> Imprimir Credencial
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let datosChecadasExportar = [];
+      let bloqueadoScan = false;
+      let listaAlumnosGlobal = [];
+      let html5QrCodeScanner = null;
+      let escanerActivo = false;
+
+      // Reemplaza esta URL con la URL de tu Web App desplegada en Apps Script
+      const API_URL = "https://script.google.com/a/macros/iehp.edu.mx/s/AKfycbyfTW7lwQHW1JmEpdMlPIM65b3JU218Kd9q9EVe40vSnLp1GuUcuBdHFOkisKgymQxY/exec";
+
+      async function llamarBackend(action, payload = {}) {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: action, ...payload })
+        });
+        const res = await response.json();
+        if (res.status === "error") throw new Error(res.message);
+        return res.data;
+      }
+
+      // ==========================================
+      // FUNCIONES AUXILIARES DE SEGURIDAD / ESCAPE
+      // ==========================================
+      function escapeHTML(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escapeQuotes(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;');
+      }
+
+      // ==========================================
+      // INICIALIZACIÓN
+      // ==========================================
+      document.addEventListener('DOMContentLoaded', function() {
+        const timeoutFallback = setTimeout(function() {
+          const userInfo = document.getElementById('userInfo');
+          if (userInfo && userInfo.innerText.includes('Cargando')) {
+            console.warn("Tiempo de espera agotado. Activando modo respaldo.");
+            configurarUsuario({ nombre: 'Hever (Admin)', rol: 'ADMIN' });
+          }
+        }, 4000);
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(function(user) {
+              clearTimeout(timeoutFallback);
+              configurarUsuario(user);
+            })
+            .withFailureHandler(function(err) {
+              clearTimeout(timeoutFallback);
+              console.error("Error al conectar con Apps Script:", err);
+              configurarUsuario({ nombre: 'Hever (Admin)', rol: 'ADMIN' });
+            })
+            .obtenerUsuarioActual();
+        } else {
+          clearTimeout(timeoutFallback);
+          configurarUsuario({ nombre: 'Hever (Admin)', rol: 'ADMIN' });
+        }
+      });
+
+      function configurarUsuario(user) {
+        if (!user) user = { nombre: 'Usuario', rol: 'ADMIN' };
+
+        const userInfo = document.getElementById('userInfo');
+        if (userInfo) userInfo.innerText = user.nombre + ' | ' + user.rol;
+
+        const setDisplay = function(id, visible) {
+          const el = document.getElementById(id);
+          if (el) el.style.display = visible ? 'block' : 'none';
+        };
+
+        document.querySelectorAll('#mainTabs .nav-link').forEach(function(btn) { btn.classList.remove('active'); });
+        document.querySelectorAll('.tab-content .tab-pane').forEach(function(pane) { pane.classList.remove('show', 'active'); });
+
+        if (user.rol === 'ADMIN' || user.rol === 'DIRECTORA') {
+          setDisplay('nav-dashboard', true);
+          setDisplay('nav-checadas', true);
+          setDisplay('nav-alumnos', true);
+          setDisplay('nav-grados', true);
+          setDisplay('nav-admin', user.rol === 'ADMIN');
+          setDisplay('nav-escaner', false);
+
+          const btnDashboard = document.getElementById('tab-dashboard');
+          const paneDashboard = document.getElementById('dashboard');
+          if (btnDashboard) btnDashboard.classList.add('active');
+          if (paneDashboard) paneDashboard.classList.add('show', 'active');
+
+          cargarDashboard();
+
+        } else if (user.rol === 'ESCANER') {
+          setDisplay('nav-dashboard', false);
+          setDisplay('nav-checadas', false);
+          setDisplay('nav-alumnos', false);
+          setDisplay('nav-grados', false);
+          setDisplay('nav-admin', false);
+          setDisplay('nav-escaner', true);
+
+          const btnEscaner = document.getElementById('tab-escaner');
+          const paneEscaner = document.getElementById('escaner');
+          if (btnEscaner) btnEscaner.classList.add('active');
+          if (paneEscaner) paneEscaner.classList.add('show', 'active');
+
+          iniciarEscanerSeguro();
+        }
+      }
+
+      // ==========================================
+      // MÓDULO DE ESCÁNER
+      // ==========================================
+      function iniciarEscanerSeguro() {
+        const readerDiv = document.getElementById('reader');
+        if (!readerDiv || typeof Html5QrcodeScanner === 'undefined') return;
+
+        try {
+          const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 220 });
+          html5QrcodeScanner.render(function(text) {
+            if (bloqueadoScan) return;
+            bloqueadoScan = true;
+            const resDiv = document.getElementById('resultadoEscaneo');
+            if (resDiv) {
+              resDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+              resDiv.classList.add('alert-info');
+              resDiv.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Procesando...';
+            }
+
+            google.script.run.withSuccessHandler(function(res) {
+              if (resDiv) {
+                resDiv.classList.remove('alert-info');
+                resDiv.classList.add(res.exito ? 'alert-success' : 'alert-danger');
+                const icono = res.exito ? '<i class="bi bi-check-circle-fill me-2 fs-5"></i>' : '<i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>';
+                resDiv.innerHTML = icono + escapeHTML(res.mensaje);
+                setTimeout(function() { 
+                  resDiv.classList.add('d-none');
+                  bloqueadoScan = false; 
+                }, 3500);
+              }
+            }).procesarEscaneoQR(text);
+          });
+        } catch (e) {
+          console.error("Error cámara QR:", e);
+        }
+      }
+
+      // ==========================================
+      // DASHBOARD
+      // ==========================================
+      function cargarDashboard() {
+        google.script.run.withSuccessHandler(function(res) {
+          if (!res) return;
+          const contGlobal = document.getElementById('contenedorTarjetasGlobales');
+          const contGrados = document.getElementById('contenedorTarjetasGrados');
+
+          if (!contGlobal || !contGrados) return;
+
+          const glob = res.global || { poblacionTotal: 0, totalDentro: 0, totalFuera: 0 };
+          const pctGlobal = glob.poblacionTotal > 0 ? Math.round((glob.totalDentro / glob.poblacionTotal) * 100) : 0;
+
+          contGlobal.innerHTML = `
+            <div class="col-md-6">
+              <div class="main-card p-3 border-start border-4 border-primary d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted small fw-bold text-uppercase">Población Total Registrada</span>
+                  <h2 class="fw-bold text-dark mb-0">${glob.poblacionTotal} <span class="fs-6 fw-normal text-muted">alumnos activos</span></h2>
+                </div>
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle fs-3">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="main-card p-3 border-start border-4 border-success d-flex align-items-center justify-content-between">
+                <div class="w-100">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Presencia Actual en Escuela</span>
+                    <span class="badge bg-success-subtle text-success fw-bold">${pctGlobal}% Asistencia</span>
+                  </div>
+                  <div class="d-flex gap-4 align-items-baseline">
+                    <span class="fs-4 fw-bold text-success"><i class="bi bi-door-open-fill me-1"></i>${glob.totalDentro} <small class="fs-6 text-muted fw-normal">en colegio</small></span>
+                    <span class="fs-4 fw-bold text-secondary"><i class="bi bi-house-door-fill me-1"></i>${glob.totalFuera} <small class="fs-6 text-muted fw-normal">fuera</small></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+          const orden = res.ordenGrados || ['1º', '2º', '3º', '4º', '5º', '6º'];
+
+          contGrados.innerHTML = orden.map(function(grado, idx) {
+            const item = (res.grados && res.grados[grado]) ? res.grados[grado] : { total: 0, dentro: 0 };
+            const pct = item.total > 0 ? Math.round((item.dentro / item.total) * 100) : 0;
+            const colorActual = colores[idx % colores.length];
+
+            return `
+              <div class="col-md-4 col-sm-6">
+                <div class="card card-grado main-card p-3 border-top border-4" style="border-color: ${colorActual} !important;">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold fs-5 text-dark">${escapeHTML(grado)} Grado</span>
+                    <span class="badge rounded-pill bg-light text-dark border fw-bold">${item.dentro} / ${item.total}</span>
+                  </div>
+                  <div class="progress mb-2" style="height: 10px; border-radius: 10px;">
+                    <div class="progress-bar" style="width: ${pct}%; background-color: ${colorActual};"></div>
+                  </div>
+                  <div class="d-flex justify-content-between small text-muted">
+                    <span>Asistencia en plantel</span>
+                    <span class="fw-bold">${pct}%</span>
+                  </div>
+                </div>
+              </div>`;
+          }).join('');
+        }).obtenerIndicadoresDashboard();
+      }
+
+      // ==========================================
+      // CHECADAS Y EXPORTACIÓN
+      // ==========================================
+      function filtrarChecadas() {
+        const fecha = document.getElementById('filtroFecha').value;
+        const grado = document.getElementById('filtroGrado').value;
+
+        google.script.run.withSuccessHandler(function(data) {
+          datosChecadasExportar = data || [];
+          const tbody = document.getElementById('tbodyChecadas');
+          if (!tbody) return;
+
+          tbody.innerHTML = datosChecadasExportar.map(function(c) {
+            const badgeClass = c.tipo === 'Entrada' ? 'badge-entrada' : 'badge-salida';
+            const icon = c.tipo === 'Entrada' ? 'bi-box-arrow-in-right' : 'bi-box-arrow-right';
+            return `
+              <tr>
+                <td>${escapeHTML(c.fecha)}</td>
+                <td class="fw-bold">${escapeHTML(c.hora)}</td>
+                <td><code>${escapeHTML(c.matricula)}</code></td>
+                <td class="fw-bold">${escapeHTML(c.nombre)}</td>
+                <td>${escapeHTML(c.grado)} "${escapeHTML(c.grupo)}"</td>
+                <td><span class="grade-badge ${badgeClass}"><i class="bi ${icon} me-1"></i>${escapeHTML(c.tipo)}</span></td>
+              </tr>`;
+          }).join('');
+        }).obtenerChecadasFiltradas(fecha, grado);
+      }
+
+      function exportarExcel() {
+        if (datosChecadasExportar.length === 0) {
+          alert("No hay datos cargados para exportar.");
+          return;
+        }
+        let csvContent = "data:text/csv;charset=utf-8,Fecha,Hora,Matricula,Nombre,Grado,Grupo,Tipo\n";
+        datosChecadasExportar.forEach(function(row) {
+          const nombreLimpio = String(row.nombre || '').replace(/"/g, '""');
+          csvContent += row.fecha + ',' + row.hora + ',' + row.matricula + ',"' + nombreLimpio + '",' + row.grado + ',' + row.grupo + ',' + row.tipo + '\n';
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "Reporte_Asistencia_" + new Date().toISOString().slice(0,10) + ".csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // ==========================================
+      // MÓDULO DE ALUMNOS Y CREDENCIALES
+      // ==========================================
+      function cargarAlumnos() {
+        llamarBackend("obtenerAlumnos")
+          .then(data => {
+            if (!data) return;
+            listaAlumnosGlobal = data.map(function(a) {
+              if (Array.isArray(a)) {
+                return {
+                  matricula: String(a[0] || ''),
+                  nombre: String(a[1] || ''),
+                  apellidos: String(a[2] || ''),
+                  grado: String(a[3] || ''),
+                  grupo: String(a[4] || '-'),
+                  nombreTutor: String(a[5] || ''),
+                  correoTutor: String(a[6] || '-'),
+                  telefono: String(a[7] || ''),
+                  estatus: String(a[8] || 'ACTIVO')
+                };
+              }
+              return a;
+            });
+            filtrarAlumnosPorGrado();
+          })
+          .catch(err => console.error("Error al cargar alumnos:", err));
+      }
+
+      function filtrarAlumnosPorGrado() {
+        const selectElem = document.getElementById('filtroGradoAlumno');
+        const gradoSeleccionado = selectElem ? selectElem.value.trim() : '';
+
+        // Si eligió "Todos los Grados"
+        if (!gradoSeleccionado) {
+          renderizarTablaAlumnos(listaAlumnosGlobal);
+          return;
+        }
+
+        // Filtrar asegurando compatibilidad con o sin el símbolo º
+        const listaFiltrada = listaAlumnosGlobal.filter(function(a) {
+          const gradoAlumno = String(a.grado || '').trim();
+          return gradoAlumno === gradoSeleccionado || gradoAlumno.replace('º', '') === gradoSeleccionado.replace('º', '');
+        });
+
+        renderizarTablaAlumnos(listaFiltrada);
+      }
+
+      function renderizarTablaAlumnos(alumnos) {
+        const tbody = document.getElementById('tbodyAlumnos');
+        if (!tbody) return;
+        
+        if (alumnos.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox me-2"></i>No se encontraron alumnos registrados en este grado.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = alumnos.map(function(a) {
+          const matEsc = escapeQuotes(a.matricula);
+          const corrEsc = escapeQuotes(a.correoTutor);
+          return `
+            <tr>
+              <td><code>${escapeHTML(a.matricula)}</code></td>
+              <td>
+                <div class="fw-bold">${escapeHTML(a.nombre)} ${escapeHTML(a.apellidos)}</div>
+                <small class="text-muted"><i class="bi bi-person-heart me-1"></i>Tutor: ${escapeHTML(a.nombreTutor || 'No registrado')}</small>
+              </td>
+              <td><span class="badge bg-secondary">${escapeHTML(a.grado)} "${escapeHTML(a.grupo)}"</span></td>
+              <td class="small">${escapeHTML(a.correoTutor || '')}</td>
+              <td class="small">${escapeHTML(a.telefono || '')}</td>
+              <td><span class="badge ${a.estatus === 'ACTIVO' ? 'bg-success-subtle text-success fw-bold' : 'bg-secondary-subtle text-secondary'}">${escapeHTML(a.estatus)}</span></td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary" title="Ver Credencial QR" onclick="generarCredencial('${matEsc}')">
+                    <i class="bi bi-qr-code"></i>
+                  </button>
+                  <button class="btn btn-outline-success" title="Enviar PDF al Tutor" onclick="enviarCredencialPorCorreo('${matEsc}', '${corrEsc}', this)">
+                    <i class="bi bi-envelope-paper-fill"></i>
+                  </button>
+                  <button class="btn btn-outline-secondary" title="Editar" onclick="prepararEdicion('${matEsc}')">
+                    <i class="bi bi-pencil-fill"></i>
+                  </button>
+                  <button class="btn btn-outline-danger" title="Dar de baja" onclick="eliminarAlumnoUI('${matEsc}')">
+                    <i class="bi bi-trash-fill"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+      }
+
+      function limpiarModalAlumno() {
+        document.getElementById('mMatricula').value = '';
+        document.getElementById('mNombre').value = '';
+        document.getElementById('mApellidos').value = '';
+        document.getElementById('mGrado').value = '1º';
+        document.getElementById('mGrupo').value = 'A';
+        document.getElementById('mNombreTutor').value = '';
+        document.getElementById('mCorreo').value = '';
+        document.getElementById('mTelefono').value = '';
+      }
+
+      function guardarAlumnoUI() {
+        const alumno = {
+          matricula: document.getElementById('mMatricula').value,
+          nombre: document.getElementById('mNombre').value,
+          apellidos: document.getElementById('mApellidos').value,
+          grado: document.getElementById('mGrado').value,
+          grupo: document.getElementById('mGrupo').value,
+          nombreTutor: document.getElementById('mNombreTutor').value,
+          correoTutor: document.getElementById('mCorreo').value,
+          telefono: document.getElementById('mTelefono').value // Cambiado a 'telefono'
+        };
+
+        // Validar que al menos la matrícula y nombre no estén vacíos
+        if (!alumno.matricula || !alumno.nombre) {
+          alert('Por favor completa al menos la Matrícula y el Nombre.');
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function(respuesta) {
+            alert(respuesta || 'Alumno guardado con éxito.');
+            
+            // Cerrar modal
+            const modalEl = document.getElementById('modalAlumno');
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+            
+            // Limpiar campos del formulario
+            document.querySelectorAll('#modalAlumno input').forEach(i => i.value = '');
+            
+            // Recargar lista si la función existe
+            if (typeof cargarAlumnos === 'function') {
+              cargarAlumnos();
+            }
+          })
+          .withFailureHandler(function(err) {
+            alert('Error del servidor: ' + err.message);
+          })
+          .guardarAlumno(alumno); // Nombre corregido a 'guardarAlumno'
+      }
+
+      function generarCredencial(matricula) {
+        const a = listaAlumnosGlobal.find(function(item) { return item.matricula === matricula; });
+        if (!a) return;
+
+        document.getElementById('credNombre').innerText = a.nombre + ' ' + a.apellidos;
+        document.getElementById('credMatricula').innerText = a.matricula;
+        document.getElementById('credGradoGrupo').innerText = a.grado + ' Grupo "' + a.grupo + '"';
+
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(a.matricula);
+        document.getElementById('qrCredencialImg').src = qrUrl;
+
+        new bootstrap.Modal(document.getElementById('modalCredencial')).show();
+      }
+
+      function enviarCredencialPorCorreo(matricula, correo, btnElement) {
+        if (!correo || correo.trim() === '' || correo === '-') {
+          alert('Este alumno no tiene un correo de tutor registrado.');
+          return;
+        }
+
+        if (confirm('¿Deseas enviar la credencial en PDF al correo: ' + correo + '?')) {
+          const btn = btnElement || (typeof event !== 'undefined' ? event.currentTarget : null);
+          let iconoOriginal = '';
+          if (btn) {
+            iconoOriginal = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+            btn.disabled = true;
+          }
+
+          google.script.run
+            .withSuccessHandler(function(res) {
+              if (btn) {
+                btn.innerHTML = iconoOriginal;
+                btn.disabled = false;
+              }
+              alert((res && res.mensaje) || '¡Credencial enviada con éxito!');
+            })
+            .withFailureHandler(function(err) {
+              if (btn) {
+                btn.innerHTML = iconoOriginal;
+                btn.disabled = false;
+              }
+              alert('Error al enviar el correo: ' + err.message);
+            })
+            .enviarCredencialPDFBackend(matricula);
+        }
+      }
+
+      function imprimirCredencial() {
+        const contenido = document.getElementById('areaCredencial').innerHTML;
+        const ventana = window.open('', '', 'height=600,width=500');
+        ventana.document.write('<html><head><title>Imprimir Credencial Escolar</title>');
+        ventana.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">');
+        ventana.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">');
+        ventana.document.write('<style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff;}</style>');
+        ventana.document.write('</head><body>');
+        ventana.document.write('<div style="width:320px;">' + contenido + '</div>');
+        ventana.document.write('</body></html>');
+        ventana.document.close();
+        ventana.focus();
+        setTimeout(function() {
+          ventana.print();
+          ventana.close();
+        }, 800);
+      }
+
+      function eliminarAlumnoUI(mat) {
+        if (confirm("¿Deseas dar de baja al alumno con matrícula " + mat + "?")) {
+          google.script.run.withSuccessHandler(function(msg) {
+            alert(msg);
+            cargarAlumnos();
+          }).eliminarAlumno(mat);
+        }
+      }
+
+      function prepararEdicion(matricula) {
+        const a = listaAlumnosGlobal.find(function(item) { return item.matricula === matricula; });
+        if (!a) return;
+
+        document.getElementById('mMatricula').value = a.matricula;
+        document.getElementById('mNombre').value = a.nombre;
+        document.getElementById('mApellidos').value = a.apellidos;
+        document.getElementById('mGrado').value = a.grado;
+        document.getElementById('mGrupo').value = a.grupo;
+        document.getElementById('mNombreTutor').value = a.nombreTutor || '';
+        document.getElementById('mCorreo').value = a.correoTutor || '';
+        document.getElementById('mTelefono').value = a.telefonoTutor || '';
+        
+        new bootstrap.Modal(document.getElementById('modalAlumno')).show();
+      }
+
+      // ==========================================
+      // MÓDULO DE GRADOS Y ADMINISTRACIÓN
+      // ==========================================
+      function cargarGrados() {
+        google.script.run.withSuccessHandler(function(data) {
+          const tbody = document.getElementById('tbodyGrados');
+          if (!tbody) return;
+
+          tbody.innerHTML = (data || []).map(function(g) {
+            const idEsc = escapeQuotes(g[0]);
+            return '<tr><td><code>' + escapeHTML(g[0]) + '</code></td><td class="fw-bold">' + escapeHTML(g[1]) + '</td><td>Grupo "' + escapeHTML(g[2]) + '"</td><td><button class="btn btn-sm btn-outline-danger" onclick="eliminarGradoGrupoUI(\'' + idEsc + '\')"><i class="bi bi-trash"></i></button></td></tr>';
+          }).join('');
+        }).obtenerGradosGrupos();
+      }
+
+      function guardarGradoGrupoUI() {
+        const g = document.getElementById('nuevoGrado').value;
+        const gr = document.getElementById('nuevoGrupo').value;
+        google.script.run.withSuccessHandler(function(msg) {
+          alert(msg);
+          cargarGrados();
+        }).guardarGradoGrupo(g, gr);
+      }
+
+      function eliminarGradoGrupoUI(id) {
+        if (confirm("¿Eliminar este grado y grupo?")) {
+          google.script.run.withSuccessHandler(function(msg) {
+            alert(msg);
+            cargarGrados();
+          }).eliminarGradoGrupo(id);
+        }
+      }
+
+      function cargarUsuariosAdmin() {
+        google.script.run.withSuccessHandler(function(data) {
+          const tbody = document.getElementById('tbodyUsuarios');
+          if (!tbody) return;
+
+          tbody.innerHTML = (data || []).map(function(u) {
+            return '<tr><td>' + escapeHTML(u[0]) + '</td><td class="fw-bold">' + escapeHTML(u[1]) + '</td><td><span class="badge bg-dark">' + escapeHTML(u[2]) + '</span></td></tr>';
+          }).join('');
+        }).obtenerUsuariosSystem();
+      }
+
+      function guardarUsuarioAdmin() {
+        const correo = document.getElementById('adminCorreo').value;
+        const nombre = document.getElementById('adminNombre').value;
+        const rol = document.getElementById('adminRol').value;
+        google.script.run.withSuccessHandler(function(msg) {
+          alert(msg);
+          cargarUsuariosAdmin();
+        }).guardarUsuarioSystem(correo, nombre, rol);
+      }
+
+      async function toggleCamara() {
+        if (escanerActivo) {
+          detenerEscaner();
+        } else {
+          await iniciarEscaner();
+        }
+      }
+
+      async function iniciarEscaner() {
+        const btn = document.getElementById('btnToggleCamara');
+        const resultado = document.getElementById('resultadoEscaneo');
+
+        try {
+          if (!html5QrCodeScanner) {
+            html5QrCodeScanner = new Html5Qrcode("reader");
+          }
+
+          const qrConfig = {
+            fps: 10,
+            qrbox: { width: 220, height: 220 },
+            aspectRatio: 1.0
+          };
+
+          // Solicita la cámara trasera en dispositivos móviles / webcam en PC
+          await html5QrCodeScanner.start(
+            { facingMode: "environment" },
+            qrConfig,
+            onScanSuccess,
+            onScanFailure
+          );
+
+          escanerActivo = true;
+          if (btn) {
+            btn.classList.replace('btn-primary', 'btn-outline-danger');
+            btn.innerHTML = `<i class="bi bi-stop-circle-fill me-2"></i>Detener Cámara`;
+          }
+          if (resultado) resultado.classList.add('d-none');
+
+        } catch (err) {
+          console.error("Error al iniciar cámara:", err);
+          escanerActivo = false;
+          alert("No se pudo acceder a la webcam/cámara. Por favor verifica que el navegador tenga permiso para usar la cámara.");
+        }
+      }
+
+      function detenerEscaner() {
+        if (html5QrCodeScanner && escanerActivo) {
+          html5QrCodeScanner.stop().then(() => {
+            escanerActivo = false;
+            const btn = document.getElementById('btnToggleCamara');
+            if (btn) {
+              btn.classList.replace('btn-outline-danger', 'btn-primary');
+              btn.innerHTML = `<i class="bi bi-camera-video-fill me-2"></i>Iniciar Cámara`;
+            }
+          }).catch(err => console.error("Error al detener cámara:", err));
+        }
+      }
+
+      function onScanSuccess(decodedText) {
+        llamarBackend("registrarChecada", { matricula: decodedText })
+          .then(respuesta => {
+            const resultado = document.getElementById('resultadoEscaneo');
+            if (resultado) {
+              resultado.className = "mt-3 alert alert-success text-center fs-6 fw-bold rounded-4";
+              resultado.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Asistencia registrada: ${escapeHTML(decodedText)}`;
+              resultado.classList.remove('d-none');
+            }
+          })
+          .catch(err => alert("Error al registrar: " + err.message));
+      }
+
+      function onScanFailure(error) {
+        // Búsqueda continua de marcos QR
+      }
+
+      function escanearDesdeFoto(input) {
+        if (!input.files || input.files.length === 0) return;
+
+        const file = input.files[0];
+        const reader = new FileReader();
+
+        // Mostrar mensaje temporal de procesamiento
+        const resultado = document.getElementById('resultadoEscaneo');
+        if (resultado) {
+          resultado.className = "mt-3 alert alert-info text-center fs-6 fw-bold rounded-4";
+          resultado.innerHTML = `<i class="bi bi-hourglass-split me-2"></i>Procesando imagen del iPad...`;
+          resultado.classList.remove('d-none');
+        }
+
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            // 1. Redimensionar la foto del iPad (12MP es demasiado grande para la librería QR)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const MAX_TAMANO = 800; // Tamaño óptimo para detección de QR
+            let ancho = img.width;
+            let alto = img.height;
+
+            if (ancho > alto) {
+              if (ancho > MAX_TAMANO) {
+                alto *= MAX_TAMANO / ancho;
+                ancho = MAX_TAMANO;
+              }
+            } else {
+              if (alto > MAX_TAMANO) {
+                ancho *= MAX_TAMANO / alto;
+                alto = MAX_TAMANO;
+              }
+            }
+
+            canvas.width = ancho;
+            canvas.height = alto;
+            ctx.drawImage(img, 0, 0, ancho, alto);
+
+            // 2. Convertir la imagen comprimida y escanearla
+            canvas.toBlob(function(blob) {
+              if (!blob) {
+                alert("Error al procesar la imagen tomada.");
+                return;
+              }
+              const fotoOptimizada = new File([blob], "qr_ipad.jpg", { type: "image/jpeg" });
+
+              // Instanciar el lector de archivos
+              const html5QrCode = new Html5Qrcode("reader");
+              html5QrCode.scanFile(fotoOptimizada, true)
+                .then(decodedText => {
+                  // Éxito: limpia mensajes y ejecuta el registro
+                  if (resultado) resultado.classList.add('d-none');
+                  onScanSuccess(decodedText);
+                })
+                .catch(err => {
+                  console.error("Error al detectar QR:", err);
+                  if (resultado) {
+                    resultado.className = "mt-3 alert alert-danger text-center fs-6 fw-bold rounded-4";
+                    resultado.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>No se detectó el código QR. Intenta tomar la foto más de cerca y con mejor iluminación.`;
+                  }
+                });
+            }, 'image/jpeg', 0.85);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+    </script>
+  </body>
+</html>
