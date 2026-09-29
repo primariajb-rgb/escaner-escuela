@@ -26,8 +26,8 @@
 
     <!-- Botón de Control -->
     <div class="d-grid gap-2 mb-3">
-      <button id="btnToggleCamara" class="btn btn-primary btn-lg rounded-3 fw-bold py-3 shadow-sm" onclick="toggleCamara()">
-        <i class="bi bi-camera-video-fill me-2"></i>Activar Cámara en Vivo
+      <button id="btnToggleCamara" class="btn btn-outline-danger btn-lg rounded-3 fw-bold py-3 shadow-sm" onclick="toggleCamara()">
+        <i class="bi bi-stop-circle-fill me-2"></i>Detener Cámara
       </button>
     </div>
 
@@ -35,42 +35,82 @@
     <div id="reader" class="p-2 border rounded-4 bg-light"></div>
 
     <!-- Mensaje de Resultado -->
-    <div id="resultadoEscaneo" class="mt-3 alert text-center fs-6 fw-bold rounded-4 d-none"></div>
+    <div id="resultadoEscaneo" class="mt-3"></div>
   </div>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    // ⚠️ REEMPLAZA ESTA URL CON TU URL DE APPS SCRIPT (Web App URL)
-    const API_URL = "https://script.google.com/a/macros/iehp.edu.mx/s/AKfycbyfTW7lwQHW1JmEpdMlPIM65b3JU218Kd9q9EVe40vSnLp1GuUcuBdHFOkisKgymQxY/exec";
+    // URL Web App de Apps Script
+    const API_URL = "https://script.google.com/macros/s/AKfycbyfTW7lwQHW1JmEpdMlPIM65b3JU218Kd9q9EVe40vSnLp1GuUcuBdHFOkisKgymQxY/exec";
 
-    let html5QrCodeScanner = null;
+    let html5QrScanner = null;
     let escanerActivo = false;
-    let escaneandoBloqueado = false;
     let bloqueoEscaneo = false;
     let timerMensaje = null;
 
+    function sanearTexto(txt) {
+      if (!txt) return '';
+      return String(txt).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     async function toggleCamara() {
       if (escanerActivo) {
-        detenerEscaner();
+        await detenerCamara();
       } else {
-        await iniciarEscaner();
+        await iniciarCamaraRobusta();
       }
     }
 
-    async function iniciarEscaner() {
+    async function detenerCamara() {
+      if (html5QrScanner && escanerActivo) {
+        try {
+          await html5QrScanner.stop();
+          html5QrScanner.clear();
+        } catch (e) {
+          console.warn("Error al detener cámara:", e);
+        }
+        escanerActivo = false;
+        const btn = document.getElementById('btnToggleCamara');
+        if (btn) {
+          btn.classList.replace('btn-outline-danger', 'btn-primary');
+          btn.innerHTML = `<i class="bi bi-camera-video-fill me-2"></i>Activar Cámara en Vivo`;
+        }
+      }
+    }
+
+    async function iniciarCamaraRobusta() {
+      const contenedor = document.getElementById("reader");
       const btn = document.getElementById('btnToggleCamara');
-      const resultado = document.getElementById('resultadoEscaneo');
+      if (!contenedor) return;
+
+      if (html5QrScanner && escanerActivo) {
+        await detenerCamara();
+      }
+
+      html5QrScanner = new Html5Qrcode("reader");
 
       try {
-        if (!html5QrCodeScanner) {
-          html5QrCodeScanner = new Html5Qrcode("reader");
+        const dispositivos = await Html5Qrcode.getCameras();
+        if (!dispositivos || dispositivos.length === 0) {
+          alert("No se encontró ninguna cámara física conectada.");
+          return;
         }
 
-        await html5QrCodeScanner.start(
-          { facingMode: "environment" },
+        let idCamaraElegida = dispositivos[0].id;
+        const camaraTrasera = dispositivos.find(d => 
+          d.label.toLowerCase().includes('back') || 
+          d.label.toLowerCase().includes('trasera') || 
+          d.label.toLowerCase().includes('environment')
+        );
+        if (camaraTrasera) idCamaraElegida = camaraTrasera.id;
+
+        await html5QrScanner.start(
+          idCamaraElegida,
           { fps: 10, qrbox: { width: 220, height: 220 } },
-          onScanSuccess,
-          onScanFailure
+          function(codigoMatricula) {
+            procesarQRLeido(codigoMatricula);
+          },
+          function(err) { /* Ignorar cuadros vacíos */ }
         );
 
         escanerActivo = true;
@@ -78,182 +118,102 @@
           btn.classList.replace('btn-primary', 'btn-outline-danger');
           btn.innerHTML = `<i class="bi bi-stop-circle-fill me-2"></i>Detener Cámara`;
         }
-        if (resultado) resultado.classList.add('d-none');
 
-      } catch (err) {
-        alert("Asegúrate de permitir el acceso a la cámara en las opciones del navegador.");
-      }
-    }
-
-    function detenerEscaner() {
-      if (html5QrCodeScanner && escanerActivo) {
-        html5QrCodeScanner.stop().then(() => {
-          escanerActivo = false;
-          const btn = document.getElementById('btnToggleCamara');
-          if (btn) {
-            btn.classList.replace('btn-outline-danger', 'btn-primary');
-            btn.innerHTML = `<i class="bi bi-camera-video-fill me-2"></i>Activar Cámara en Vivo`;
-          }
-        });
-      }
-    }
-
-    function procesarQRLeido(codigoMatricula) {
-      // Evitar lecturas duplicadas continuas del escáner
-      if (bloqueoEscaneo) return;
-      bloqueoEscaneo = true;
-    
-      const divRespuesta = document.getElementById('resultadoEscaner') || document.getElementById('mensajeEscaneo');
-      if (divRespuesta) {
-        divRespuesta.innerHTML = `
-          <div class="alert alert-info text-center fw-bold mb-0">
-            <div class="spinner-border spinner-border-sm me-2"></div>Procesando entrada...
-          </div>`;
-      }
-    
-      const procesarRespuesta = function(res) {
-        if (!divRespuesta) return;
-        
-        if (timerMensaje) clearTimeout(timerMensaje);
-    
-        if (res.registrado) {
-          // ✅ REGISTRO EXITOSO DE ENTRADA
-          divRespuesta.innerHTML = `
-            <div class="alert alert-success text-center fw-bold shadow-lg mb-0 p-3">
-              <div class="fs-4">✅ ¡ENTRADA REGISTRADA!</div>
-              <div class="fs-5 text-dark mt-1">${res.nombre}</div>
-              <small class="text-success">Hora: ${res.hora}</small>
-            </div>`;
-        } else if (res.esDuplicado) {
-          // ⚠️ ALUMNO YA INGRESÓ HOY
-          divRespuesta.innerHTML = `
-            <div class="alert alert-warning text-center fw-bold shadow-lg mb-0 p-3">
-              <div class="fs-4">⚠️ YA REGISTRÓ ENTRADA HOY</div>
-              <div class="fs-5 text-dark mt-1">${res.nombre || res.matricula}</div>
-              <small class="text-dark">Este alumno ya fue registrado el día de hoy.</small>
-            </div>`;
-        } else {
-          // ❌ NO ENCONTRADO O ERROR
-          divRespuesta.innerHTML = `
-            <div class="alert alert-danger text-center fw-bold shadow-lg mb-0 p-3">
-              <div class="fs-4">❌ ERROR</div>
-              <div>${res.mensaje || 'No se pudo procesar la lectura'}</div>
-            </div>`;
-        }
-    
-        // Ocultar mensaje y habilitar escáner tras 3.5 segundos
-        timerMensaje = setTimeout(function() {
-          if (divRespuesta) divRespuesta.innerHTML = '';
-          bloqueoEscaneo = false; 
-        }, 3500);
-      };
-    
-      // Llamada al backend
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-          .withSuccessHandler(procesarRespuesta)
-          .withFailureHandler(function(err) {
-            if (divRespuesta) {
-              divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0">Error de conexión al servidor</div>`;
-              setTimeout(() => { divRespuesta.innerHTML = ''; bloqueoEscaneo = false; }, 3000);
-            }
-          })
-          .registrarChecada(codigoMatricula);
-      } else if (typeof llamarBackend === 'function') {
-        llamarBackend("registrarChecada", { matricula: codigoMatricula })
-          .then(procesarRespuesta)
-          .catch(err => {
-            if (divRespuesta) {
-              divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0">Error de comunicación</div>`;
-              setTimeout(() => { divRespuesta.innerHTML = ''; bloqueoEscaneo = false; }, 3000);
-            }
-          });
-      }
-    }
-
-    let html5QrScanner = null;
-
-    async function iniciarCamaraRobusta() {
-      const contenedor = document.getElementById("reader");
-      if (!contenedor) {
-        console.error("No se encontró el elemento HTML con id='reader'");
-        return;
-      }
-    
-      // 1. Detener e instancias previas si existían
-      if (html5QrScanner) {
-        try {
-          await html5QrScanner.stop();
-          html5QrScanner.clear();
-        } catch (e) {
-          console.warn("Limpieza previa del escáner:", e);
-        }
-      }
-    
-      html5QrScanner = new Html5Qrcode("reader");
-    
-      try {
-        // 2. Obtener lista real de cámaras físicas conectadas
-        const dispositivos = await Html5Qrcode.getCameras();
-        
-        if (!dispositivos || dispositivos.length === 0) {
-          alert("No se encontró ninguna cámara física conectada a este equipo.");
-          return;
-        }
-    
-        // 3. Preferir cámara trasera si existe en el listado, o tomar la primera (Webcam)
-        let idCamaraElegida = dispositivos[0].id;
-        const camaraTrasera = dispositivos.find(d => 
-          d.label.toLowerCase().includes('back') || 
-          d.label.toLowerCase().includes('trasera') || 
-          d.label.toLowerCase().includes('environment')
-        );
-    
-        if (camaraTrasera) {
-          idCamaraElegida = camaraTrasera.id;
-        }
-    
-        // 4. Iniciar con la cámara seleccionada
-        const configuracion = { 
-          fps: 10, 
-          qrbox: { width: 250, height: 250 } 
-        };
-    
-        await html5QrScanner.start(
-          idCamaraElegida,
-          configuracion,
-          function(codigoMatricula) {
-            // Al detectar lectura correcta
-            if (typeof procesarQRLeido === 'function') {
-              procesarQRLeido(codigoMatricula);
-            }
-          },
-          function(errorEscaneo) {
-            // Silenciar errores de lectura cuadro por cuadro
-          }
-        );
-    
       } catch (err) {
         console.error("Error al iniciar cámara:", err);
-        
-        // Diagnóstico exacto del error real
         const msg = String(err);
         if (msg.includes("NotReadableError") || err.name === "NotReadableError") {
-          alert("⚠️ La cámara está ocupada por otra aplicación (Zoom, Meet, WhatsApp) o por otra pestaña. Ciérralas y vuelve a intentar.");
+          alert("⚠️ La cámara está ocupada por otra aplicación o pestaña. Ciérralas y reintenta.");
         } else if (msg.includes("NotAllowedError") || err.name === "NotAllowedError") {
-          alert("⚠️ Permiso denegado. Haz clic en el candado junto a la URL y permite el acceso a la cámara.");
+          alert("⚠️ Permiso denegado. Concede el acceso a la cámara en el navegador.");
         } else {
           alert("No se pudo iniciar la cámara: " + (err.message || err));
         }
       }
     }
 
-    // Iniciar al cargar el documento
+    function procesarQRLeido(codigoMatricula) {
+      if (bloqueoEscaneo) return;
+      bloqueoEscaneo = true;
+
+      const divRespuesta = document.getElementById('resultadoEscaneo');
+
+      const desbloquearEscaner = function() {
+        if (divRespuesta) divRespuesta.innerHTML = '';
+        bloqueoEscaneo = false;
+      };
+
+      if (divRespuesta) {
+        divRespuesta.innerHTML = `
+          <div class="alert alert-info text-center fw-bold mb-0 shadow-sm rounded-4">
+            <div class="spinner-border spinner-border-sm me-2"></div>Procesando entrada...
+          </div>`;
+      }
+
+      const mostrarRespuesta = function(res) {
+        if (!divRespuesta) {
+          desbloquearEscaner();
+          return;
+        }
+
+        if (timerMensaje) clearTimeout(timerMensaje);
+
+        if (res && res.registrado) {
+          divRespuesta.innerHTML = `
+            <div class="alert alert-success text-center fw-bold shadow-lg mb-0 p-3 rounded-4">
+              <div class="fs-4">✅ ¡ENTRADA REGISTRADA!</div>
+              <div class="fs-5 text-dark mt-1">${sanearTexto(res.nombre)}</div>
+              <small class="text-success">Hora: ${sanearTexto(res.hora)}</small>
+            </div>`;
+        } else if (res && res.esDuplicado) {
+          divRespuesta.innerHTML = `
+            <div class="alert alert-warning text-center fw-bold shadow-lg mb-0 p-3 rounded-4">
+              <div class="fs-4">⚠️ YA REGISTRÓ ENTRADA HOY</div>
+              <div class="fs-5 text-dark mt-1">${sanearTexto(res.nombre || res.matricula)}</div>
+              <small class="text-dark">Este alumno ya fue registrado el día de hoy.</small>
+            </div>`;
+        } else {
+          divRespuesta.innerHTML = `
+            <div class="alert alert-danger text-center fw-bold shadow-lg mb-0 p-3 rounded-4">
+              <div class="fs-4">❌ ERROR</div>
+              <div>${sanearTexto(res ? res.mensaje : 'No se pudo procesar la lectura')}</div>
+            </div>`;
+        }
+
+        timerMensaje = setTimeout(desbloquearEscaner, 3500);
+      };
+
+      // 1. Envío mediante API HTTP (GitHub Pages -> Apps Script)
+      if (typeof API_URL !== 'undefined' && API_URL && !window.google) {
+        fetch(`${API_URL}?action=registrarChecada&matricula=${encodeURIComponent(codigoMatricula)}`)
+          .then(r => r.json())
+          .then(data => mostrarRespuesta(data))
+          .catch(err => {
+            console.error("Error en la petición API:", err);
+            if (divRespuesta) {
+              divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0 rounded-4">Error de conexión al servidor</div>`;
+            }
+            timerMensaje = setTimeout(desbloquearEscaner, 3000);
+          });
+      } 
+      // 2. Respaldo para cuando se ejecuta nativamente en Google Apps Script
+      else if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(mostrarRespuesta)
+          .withFailureHandler(function(err) {
+            if (divRespuesta) divRespuesta.innerHTML = `<div class="alert alert-danger text-center mb-0 rounded-4">Error de servidor</div>`;
+            timerMensaje = setTimeout(desbloquearEscaner, 3000);
+          })
+          .registrarChecada(codigoMatricula);
+      } else {
+        setTimeout(desbloquearEscaner, 3000);
+      }
+    }
+
+    // Iniciar automáticamente al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
       iniciarCamaraRobusta();
     });
-
-    function onScanFailure(error) {}
   </script>
 </body>
 </html>
